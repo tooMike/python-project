@@ -1,5 +1,7 @@
 from decimal import Decimal
 from datetime import date, datetime, timedelta
+from collections import defaultdict
+
 
 goods = {}
 
@@ -21,7 +23,6 @@ def add_by_note(items, note):
     note = note.split()
     try:
         is_it_date = datetime.strptime(note[-1], DATE_FORMAT).date()
-
         expiration_date = note[-1]
         amount = Decimal(note[-2])
         title = ' '.join(name_part for name_part in note[:-2])
@@ -35,36 +36,26 @@ def add_by_note(items, note):
 
 
 def find(items, needle):
-    find_list = []
     needle = needle.lower()
     find_list = [item for item in items if needle in item.lower()]
-    # for item in items:
-    #    if needle in item.lower():
-    #        find_list.append(item)
+
     return find_list
 
 
 def amount(items, needle):
     find_list = find(items, needle)
-    result_amount = Decimal('0')
-    for good in find_list:
-        for item in items[good]:
-            result_amount += item['amount']
+    result = sum(item['amount'] for good in find_list for item in items[good])
 
-    return result_amount
+    return result
 
 
 def expire(items, in_advance_days=0):
     today = date.today()
-    list_of_expired_products = []
-    for good in items:
-        total_ammount = 0
-        for item in items[good]:
-            if item['expiration_date']:
-                if (today + timedelta(days=in_advance_days)) >= item['expiration_date']:
-                    total_ammount += item['amount']
-                    name = good
-        if total_ammount:
-            list_of_expired_products.append((name, total_ammount))
+    list_of_expired_products = defaultdict(Decimal)
+    for good, info in items.items():
+        for item in info:
+            expiration_date = item.get('expiration_date')
+            if expiration_date and (today + timedelta(days=in_advance_days)) >= item['expiration_date']:
+                list_of_expired_products[good] += item['amount']
 
-    return list_of_expired_products
+    return [(good, amount) for good, amount in list_of_expired_products.items() if amount >0]
